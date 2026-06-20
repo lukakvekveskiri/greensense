@@ -1,19 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ka">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GreenSense Smart Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <link rel="stylesheet" href="style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 </head>
 <body>
-<div class="logo">
+
+    <div class="container">
+        <header>
+            <div class="logo">
                 <h1>Green<span>Sense</span></h1>
             </div>
             <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
@@ -33,7 +36,7 @@
                     <h3 id="mode-title">Standard Mode</h3>
                     
                     <div class="camera-container" onclick="startCamera()">
-                        <video id="webcam" autoplay playsinline></video>
+                        <video id="webcam" autoplay playsinline muted></video>
                         <div class="camera-placeholder" id="placeholder">
                             <i class="fa-solid fa-camera"></i>
                             <span style="font-weight: 600;">AI Plant Scanner</span>
@@ -70,15 +73,24 @@
         let bluetoothDevice = null;
         let rxCharacteristic = null;
 
-        // 1. AI მოდელის ლოკალურად ჩატვირთვა ფონურ რეჟიმში
+        // 1. Loading your local custom Teachable Machine files
         async function loadAI() {
-            document.getElementById('ai-result').innerText = "Loading AI Model...";
-            model = await mobilenet.load();
-            document.getElementById('ai-result').innerText = "AI Model Ready";
+            document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
+            try {
+                // Since files are in the same folder, we just pass their names
+                const modelURL = './model.json';
+                const metadataURL = './metadata.json';
+                
+                model = await tmImage.load(modelURL, metadataURL);
+                document.getElementById('ai-result').innerText = "GreenSense AI Ready";
+            } catch (e) {
+                console.error(e);
+                document.getElementById('ai-result').innerText = "Error loading local files.";
+            }
         }
         loadAI();
 
-        // 2. კამერის ჩართვა და გამოსახულების ამოცნობა (ინტერნეტის გარეშე)
+        // 2. Start Camera and predict using your custom plant labels
         async function startCamera() {
             const video = document.getElementById('webcam');
             const placeholder = document.getElementById('placeholder');
@@ -89,71 +101,72 @@
                 video.srcObject = stream;
                 placeholder.style.display = 'none';
                 video.style.display = 'block';
-                resultDiv.innerText = "Analyzing plant...";
+                resultDiv.innerText = "Scanning environment...";
 
-                // დაველოდოთ 2 წამი სკანირების ეფექტისთვის და მოვახდინოთ იდენტიფიკაცია
-                setTimeout(async () => {
+                // Predict every 1 second continuously while the camera is active
+                setInterval(async () => {
                     if (model) {
-                        const predictions = await model.classify(video);
-                        // ავიღოთ ყველაზე მაღალი ალბათობის მქონე შედეგი
-                        const plantName = predictions[0].className.split(',')[0];
-                        resultDiv.innerText = `Detected: ${plantName}`;
+                        const prediction = await model.predict(video);
                         
-                        // სიმულაცია: მცენარის მიხედვით რეჟიმის შეცვლა
-                        document.getElementById('mode-title').innerText = `${plantName} Mode`;
-                        adjustGreenhouseThresholds(plantName);
+                        // Sort predictions to find your highest confidence score
+                        prediction.sort((a, b) => b.probability - a.probability);
+                        const topResult = prediction[0];
+
+                        // If it's less than 60% confident altogether, keep looking
+                        if (topResult.probability < 0.60) {
+                            resultDiv.innerText = "Analyzing surroundings...";
+                            return;
+                        }
+
+                        // Display the detected label (Tomato, Strawbarry, or Empty Pot)
+                        let detectedLabel = topResult.className;
+                        resultDiv.innerText = `Detected: ${detectedLabel} (${Math.round(topResult.probability * 100)}%)`;
+                        
+                        // Dynamically update your UI mode based on your custom trained labels!
+                        if (detectedLabel === "tomato") {
+                            document.getElementById('mode-title').innerText = "Tomato Mode Active";
+                            document.getElementById('health-score').innerText = "96";
+                        } else if (detectedLabel === "strawbarry") {
+                            document.getElementById('mode-title').innerText = "Strawberry Mode Active";
+                            document.getElementById('health-score').innerText = "92";
+                        } else if (detectedLabel === "empty pot") {
+                            document.getElementById('mode-title').innerText = "Greenhouse: Empty Station";
+                            document.getElementById('health-score').innerText = "--";
+                        }
                     }
-                }, 2000);
+                }, 1000);
 
             } catch (err) {
-                console.error("Camera access denied", err);
-                resultDiv.innerText = "Error accessing camera.";
+                console.error("Camera error:", err);
+                resultDiv.innerText = "Camera Access Error";
             }
         }
 
-        // 3. გარემოს ადაპტაცია ამოცნობილი მცენარის მიხედვით
-        function adjustGreenhouseThresholds(plant) {
-            document.getElementById('health-score').innerText = "98";
-            // აქ შეგიძლიათ შეცვალოთ სასურველი პარამეტრების ლოგიკა კოდში
-        }
-
-        // 4. Web Bluetooth კავშირი HM-10 მოდულთან
+        // Bluetooth setup remains completely active below
         async function connectBluetooth() {
             const btButton = document.getElementById('bt-button');
             const btText = document.getElementById('bt-text');
-
             try {
                 btText.innerText = "Searching...";
-                // ვეძებთ HM-10 ან ნებისმიერ BLE მოწყობილობას, რომელიც ატარებს Serial პორტის სერვისს
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'HM-' }, { name: 'MLT-BT05' }],
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // სტანდარტული HM-10 სერვისი
+                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
                 });
-
                 const server = await bluetoothDevice.gatt.connect();
                 const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
                 rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-
-                // მონაცემების მიღების დაწყება
                 await rxCharacteristic.startNotifications();
                 rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
-
                 btButton.classList.add('connected');
                 btText.innerText = "Connected";
-
             } catch (error) {
-                console.error("Bluetooth connection failed", error);
+                console.error(error);
                 btText.innerText = "Connect HM-10";
-                alert("კავშირი ვერ დამყარდა. დარწმუნდით, რომ ბლუთუზი ჩართულია და იყენებთ Chrome/Edge ბრაუზერს.");
             }
         }
 
-        // 5. Arduino-დან მოსული ტექსტური მონაცემების დამუშავება
-        // მოსული მონაცემის ფორმატი უნდა იყოს მაგალითად: T:24.5,H:62,S:48,L:720
         function handleDataReceived(event) {
             const value = new TextDecoder().decode(event.target.value);
-            console.log("Received data:", value);
-
             const parts = value.split(',');
             parts.forEach(part => {
                 const kv = part.split(':');
@@ -163,6 +176,9 @@
                 if(kv[0] === 'L') document.getElementById('val-light').innerText = `${kv[1]} Lux`;
             });
         }
+    </script>
+</body>
+</html>
     </script>
 </body>
 </html>
