@@ -220,9 +220,9 @@
             try {
                 btText.innerText = "Searching...";
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'HM-' }, { name: 'MLT-BT05' }],
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-                });
+    acceptAllDevices: true, // Bypasses name and prefix checks entirely
+    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // Keeps our custom lane open
+});
                 const server = await bluetoothDevice.gatt.connect();
                 const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
                 rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
