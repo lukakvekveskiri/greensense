@@ -19,8 +19,13 @@
             <div class="logo">
                 <h1>Green<span>Sense</span></h1>
             </div>
-            <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
-                <i class="fa-solid fa-bluetooth"></i> <span id="bt-text">Connect HM-10</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
+                    <i class="fa-solid fa-bluetooth"></i> <span id="bt-text">Connect HM-10</span>
+                </div>
+                <button id="sim-button" onclick="startDataSimulation()" style="background: #2e7559; color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer; transition: 0.3s;">
+                    🚀 Start Sim
+                </button>
             </div>
         </header>
 
@@ -73,24 +78,23 @@
         let bluetoothDevice = null;
         let rxCharacteristic = null;
 
-        // 1. Loading your local custom Teachable Machine files
+        // 1. Automatically load your local custom Teachable Machine model files
         async function loadAI() {
             document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
             try {
-                // Since files are in the same folder, we just pass their names
                 const modelURL = './model.json';
                 const metadataURL = './metadata.json';
                 
                 model = await tmImage.load(modelURL, metadataURL);
                 document.getElementById('ai-result').innerText = "GreenSense AI Ready";
             } catch (e) {
-                console.error(e);
+                console.error("Failed to load local model files:", e);
                 document.getElementById('ai-result').innerText = "Error loading local files.";
             }
         }
         loadAI();
 
-        // 2. Start Camera and predict using your custom plant labels
+        // 2. Start Camera feed and process custom plant predictions continuously
         async function startCamera() {
             const video = document.getElementById('webcam');
             const placeholder = document.getElementById('placeholder');
@@ -103,26 +107,25 @@
                 video.style.display = 'block';
                 resultDiv.innerText = "Scanning environment...";
 
-                // Predict every 1 second continuously while the camera is active
+                // Predict every 1 second while camera frame matrix is active
                 setInterval(async () => {
                     if (model) {
                         const prediction = await model.predict(video);
                         
-                        // Sort predictions to find your highest confidence score
+                        // Sort predictions to find the highest match score
                         prediction.sort((a, b) => b.probability - a.probability);
                         const topResult = prediction[0];
 
-                        // If it's less than 60% confident altogether, keep looking
+                        // Keep scanning if confidence is too low (< 60%)
                         if (topResult.probability < 0.60) {
                             resultDiv.innerText = "Analyzing surroundings...";
                             return;
                         }
 
-                        // Display the detected label (Tomato, Strawbarry, or Empty Pot)
                         let detectedLabel = topResult.className;
                         resultDiv.innerText = `Detected: ${detectedLabel} (${Math.round(topResult.probability * 100)}%)`;
                         
-                        // Dynamically update your UI mode based on your custom trained labels!
+                        // Update UI depending on which trained class is spotted
                         if (detectedLabel === "tomato") {
                             document.getElementById('mode-title').innerText = "Tomato Mode Active";
                             document.getElementById('health-score').innerText = "96";
@@ -137,12 +140,31 @@
                 }, 1000);
 
             } catch (err) {
-                console.error("Camera error:", err);
+                console.error("Camera access error:", err);
                 resultDiv.innerText = "Camera Access Error";
             }
         }
 
-        // Bluetooth setup remains completely active below
+        // 3. Direct Interface Testing Simulator (Bypasses active Bluetooth hardware checks)
+        function startDataSimulation() {
+            document.getElementById('bt-text').innerText = "Simulating Live...";
+            document.getElementById('bt-button').classList.add('connected');
+            console.log("Direct UI Telemetry simulator running...");
+
+            setInterval(() => {
+                const temp = (23 + Math.random() * 4).toFixed(1);
+                const hum = Math.floor(60 + Math.random() * 10);
+                const soil = Math.floor(45 + Math.random() * 15);
+                const light = Math.floor(700 + Math.random() * 150);
+
+                document.getElementById('val-temp').innerText = `${temp} °C`;
+                document.getElementById('val-hum').innerText = `${hum} %`;
+                document.getElementById('val-soil').innerText = `${soil} %`;
+                document.getElementById('val-light').innerText = `${light} Lux`;
+            }, 1500);
+        }
+
+        // 4. Physical Bluetooth connectivity (Web Bluetooth API)
         async function connectBluetooth() {
             const btButton = document.getElementById('bt-button');
             const btText = document.getElementById('bt-text');
@@ -160,11 +182,12 @@
                 btButton.classList.add('connected');
                 btText.innerText = "Connected";
             } catch (error) {
-                console.error(error);
+                console.error("Web Bluetooth error:", error);
                 btText.innerText = "Connect HM-10";
             }
         }
 
+        // Parse standard text strings incoming from your microcontroller string packet
         function handleDataReceived(event) {
             const value = new TextDecoder().decode(event.target.value);
             const parts = value.split(',');
@@ -176,9 +199,6 @@
                 if(kv[0] === 'L') document.getElementById('val-light').innerText = `${kv[1]} Lux`;
             });
         }
-    </script>
-</body>
-</html>
     </script>
 </body>
 </html>
