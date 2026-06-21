@@ -1,115 +1,206 @@
-/* General Layout & Background */
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f0f4f8;
-    color: #333;
+/* --- ძირითადი სტილები --- */
+* {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background-color: #121814;
+    color: #e0e0e0;
+    padding: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
 }
 
-/* Dashboard Container Card */
 .container {
-    max-width: 450px;
-    width: 90%;
-    background: #ffffff;
-    padding: 30px;
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+/* --- ჰედერი --- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #1e2d24, #142019);
+    padding: 20px;
     border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(46, 117, 89, 0.2);
+}
+
+.logo h1 {
+    color: #4ef0a0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.logo span {
+    color: #fff;
+    font-weight: 300;
+}
+
+.bt-status {
+    background: rgba(240, 78, 78, 0.1);
+    color: #f04e4e;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(240, 78, 78, 0.3);
+    cursor: pointer;
+    transition: 0.3s;
+}
+.bt-status.connected {
+    background: rgba(78, 240, 160, 0.1);
+    color: #4ef0a0;
+    border-color: rgba(78, 240, 160, 0.3);
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+.status-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+.card {
+    background: #1a231e;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
 }
 
-/* Headings */
-h1 {
-    color: #2c3e50;
-    font-size: 26px;
-    margin-top: 0;
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-}
-
-/* Decorative Divider Rule */
-hr {
-    border: 0;
-    border-top: 1px solid #e2e8f0;
-    margin: 25px 0;
-}
-
-/* Connection Status text */
-.status {
-    font-size: 14px;
-    font-weight: 600;
-    color: #e74c3c; /* Red default for disconnected */
-    background-color: #fdf2f2;
-    padding: 8px 16px;
-    border-radius: 30px;
-    display: inline-block;
-    margin-bottom: 25px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-}
-
-/* Changes when javascript injects class="connected" */
-.status.connected {
-    color: #2ecc71; /* Green when active */
-    background-color: #f0fbf5;
-}
-
-/* Core Button Base Styles */
-button {
-    width: 100%;
-    padding: 14px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
+.health-score-circle {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: conic-gradient(#4ef0a0 85%, #2a3b32 0);
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
-    transition: transform 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    margin-bottom: 15px;
+    box-shadow: 0 0 20px rgba(78, 240, 160, 0.2);
+}
+.health-score-circle::before {
+    content: '';
+    position: absolute;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: #1a231e;
+}
+.health-inner {
+    position: relative;
+    z-index: 1;
+}
+.health-inner h2 {
+    font-size: 36px;
+    color: #fff;
+    font-weight: 700;
+}
+.health-inner p {
+    font-size: 12px;
+    color: #a0a0a0;
 }
 
-/* Click/Tap active compression animation */
-button:active {
-    transform: scale(0.98);
+.camera-container {
+    width: 100%;
+    height: 220px;
+    background: #111714;
+    border-radius: 12px;
+    border: 2px dashed #3a4d42;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    overflow: hidden;
+    position: relative;
+}
+#webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+}
+.camera-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+}
+.camera-container i {
+    font-size: 40px;
+    color: #4ef0a0;
+    margin-bottom: 10px;
+}
+#ai-result {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4ef0a0;
+    font-weight: 600;
 }
 
-/* 🔌 Connect Button Specifics */
-.btn-connect {
-    background-color: #3498db;
-    color: #ffffff;
+.sensors-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+.sensor-card {
+    background: #1a231e;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.icon-wrapper {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
 }
 
-.btn-connect:hover {
-    background-color: #2980b9;
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
-}
+.temp .icon-wrapper { background: rgba(255, 99, 132, 0.1); color: #ff6384; }
+.humidity .icon-wrapper { background: rgba(54, 162, 235, 0.1); color: #36a2eb; }
+.soil .icon-wrapper { background: rgba(255, 206, 86, 0.1); color: #ffce56; }
+.light .icon-wrapper { background: rgba(153, 102, 255, 0.1); color: #9966ff; }
+.sensor-info p { font-size: 12px; color: #a0a0a0; }
+.sensor-info h3 { font-size: 20px; color: #fff; margin: 2px 0; }
+.status-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(78, 240, 160, 0.2); color: #4ef0a0; display: inline-block; }
 
-/* 💡 Turn Lights ON Button */
-.btn-on {
-    background-color: #2ecc71;
-    color: #ffffff;
+/* --- მედია რექვერები ოპტიმიზაციისთვის --- */
+@media (min-width: 768px) {
+    .main-content { grid-template-columns: 1fr 1fr; }
 }
-
-.btn-on:hover {
-    background-color: #27ae60;
-    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
-}
-
-/* 🔌 Turn Lights OFF Button */
-.btn-off {
-    background-color: #e74c3c;
-    color: #ffffff;
-}
-
-.btn-off:hover {
-    background-color: #c0392b;
-    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.2);
+@media (min-width: 1024px) {
+    .main-content { grid-template-columns: 350px 1fr; gap: 25px; }
+    .sensors-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
 }
