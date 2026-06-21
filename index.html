@@ -1,84 +1,181 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ka">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Greenhouse HM-10 Dashboard</title>
+    <title>GreenSense Smart Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 </head>
 <body>
 
-<div class="container">
-    <h1>Greenhouse Control</h1>
-    <div id="statusText" class="status">Disconnected</div>
-    
-    <button class="btn-connect" id="connectBtn" onclick="connectBluetooth()">🔌 Connect to HM-10</button>
-    <hr>
-    
-    <button class="btn-on" onclick="sendCommand('LIGHT_ON')">💡 Turn Lights ON</button>
-    <button class="btn-off" onclick="sendCommand('LIGHT_OFF')">🔌 Turn Lights OFF</button>
-</div>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>Green<span>Sense</span></h1>
+            </div>
+            <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
+                <i class="fa-solid fa-bluetooth"></i> <span id="bt-text">Connect HM-10</span>
+            </div>
+        </header>
 
-<script>
-    let bluetoothDevice = null;
-    let rxTxCharacteristic = null;
+        <div class="main-content">
+            <div class="status-panel">
+                <div class="card">
+                    <div class="health-score-circle">
+                        <div class="health-inner">
+                            <h2 id="health-score">85</h2>
+                            <p>Score</p>
+                        </div>
+                    </div>
+                    <h3 id="mode-title">Standard Mode</h3>
+                    
+                    <div class="camera-container" onclick="startCamera()">
+                        <video id="webcam" autoplay playsinline muted></video>
+                        <div class="camera-placeholder" id="placeholder">
+                            <i class="fa-solid fa-camera"></i>
+                            <span style="font-weight: 600;">AI Plant Scanner</span>
+                            <p style="font-size: 12px; color: #708075; margin-top: 5px;">Click to scan plant</p>
+                        </div>
+                    </div>
+                    <div id="ai-result">AI Status: Ready</div>
+                </div>
+            </div>
 
-    // Factory default 16-bit UUIDs for the TI CC2541 HM-10 module
-    const HM10_SERVICE_UUID = 0xffe0; 
-    const HM10_CHARACTERISTIC_UUID = 0xffe1;
+            <div class="sensors-grid">
+                <div class="sensor-card temp">
+                    <div class="icon-wrapper"><i class="fa-solid fa-temperature-high"></i></div>
+                    <div class="sensor-info"><p>Air Temp</p><h3 id="val-temp">--.- °C</h3><span class="status-badge">Normal</span></div>
+                </div>
+                <div class="sensor-card humidity">
+                    <div class="icon-wrapper"><i class="fa-solid fa-droplet"></i></div>
+                    <div class="sensor-info"><p>Air Humidity</p><h3 id="val-hum">-- %</h3><span class="status-badge">Normal</span></div>
+                </div>
+                <div class="sensor-card soil">
+                    <div class="icon-wrapper"><i class="fa-solid fa-seedling"></i></div>
+                    <div class="sensor-info"><p>Soil Moisture</p><h3 id="val-soil">-- %</h3><span class="status-badge">Normal</span></div>
+                </div>
+                <div class="sensor-card light">
+                    <div class="icon-wrapper"><i class="fa-solid fa-sun"></i></div>
+                    <div class="sensor-info"><p>Light Level</p><h3 id="val-light">-- Lux</h3><span class="status-badge">Normal</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    async function connectBluetooth() {
-        const statusText = document.getElementById('statusText');
-        const connectBtn = document.getElementById('connectBtn');
-        
-        try {
-            statusText.innerText = "Searching for HM-10...";
-            
-            // Filters for the standard HM-10 service profile
-            bluetoothDevice = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [HM10_SERVICE_UUID] }]
+    <script>
+        let model = undefined;
+        let bluetoothDevice = null;
+        let rxCharacteristic = null;
+
+        // 1. Loading your local custom Teachable Machine files
+        async function loadAI() {
+            document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
+            try {
+                // Since files are in the same folder, we just pass their names
+                const modelURL = './model.json';
+                const metadataURL = './metadata.json';
+                
+                model = await tmImage.load(modelURL, metadataURL);
+                document.getElementById('ai-result').innerText = "GreenSense AI Ready";
+            } catch (e) {
+                console.error(e);
+                document.getElementById('ai-result').innerText = "Error loading local files.";
+            }
+        }
+        loadAI();
+
+        // 2. Start Camera and predict using your custom plant labels
+        async function startCamera() {
+            const video = document.getElementById('webcam');
+            const placeholder = document.getElementById('placeholder');
+            const resultDiv = document.getElementById('ai-result');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                resultDiv.innerText = "Scanning environment...";
+
+                // Predict every 1 second continuously while the camera is active
+                setInterval(async () => {
+                    if (model) {
+                        const prediction = await model.predict(video);
+                        
+                        // Sort predictions to find your highest confidence score
+                        prediction.sort((a, b) => b.probability - a.probability);
+                        const topResult = prediction[0];
+
+                        // If it's less than 60% confident altogether, keep looking
+                        if (topResult.probability < 0.60) {
+                            resultDiv.innerText = "Analyzing surroundings...";
+                            return;
+                        }
+
+                        // Display the detected label (Tomato, Strawbarry, or Empty Pot)
+                        let detectedLabel = topResult.className;
+                        resultDiv.innerText = `Detected: ${detectedLabel} (${Math.round(topResult.probability * 100)}%)`;
+                        
+                        // Dynamically update your UI mode based on your custom trained labels!
+                        if (detectedLabel === "tomato") {
+                            document.getElementById('mode-title').innerText = "Tomato Mode Active";
+                            document.getElementById('health-score').innerText = "96";
+                        } else if (detectedLabel === "strawbarry") {
+                            document.getElementById('mode-title').innerText = "Strawberry Mode Active";
+                            document.getElementById('health-score').innerText = "92";
+                        } else if (detectedLabel === "empty pot") {
+                            document.getElementById('mode-title').innerText = "Greenhouse: Empty Station";
+                            document.getElementById('health-score').innerText = "--";
+                        }
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error("Camera error:", err);
+                resultDiv.innerText = "Camera Access Error";
+            }
+        }
+
+        // Bluetooth setup remains completely active below
+        async function connectBluetooth() {
+            const btButton = document.getElementById('bt-button');
+            const btText = document.getElementById('bt-text');
+            try {
+                btText.innerText = "Searching...";
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'HM-' }, { name: 'MLT-BT05' }],
+                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+                });
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+                rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+                await rxCharacteristic.startNotifications();
+                rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
+                btButton.classList.add('connected');
+                btText.innerText = "Connected";
+            } catch (error) {
+                console.error(error);
+                btText.innerText = "Connect HM-10";
+            }
+        }
+
+        function handleDataReceived(event) {
+            const value = new TextDecoder().decode(event.target.value);
+            const parts = value.split(',');
+            parts.forEach(part => {
+                const kv = part.split(':');
+                if(kv[0] === 'T') document.getElementById('val-temp').innerText = `${kv[1]} °C`;
+                if(kv[0] === 'H') document.getElementById('val-hum').innerText = `${kv[1]} %`;
+                if(kv[0] === 'S') document.getElementById('val-soil').innerText = `${kv[1]} %`;
+                if(kv[0] === 'L') document.getElementById('val-light').innerText = `${kv[1]} Lux`;
             });
-
-            statusText.innerText = "Connecting to module...";
-            const server = await bluetoothDevice.gatt.connect();
-            const service = await server.getPrimaryService(HM10_SERVICE_UUID);
-            rxTxCharacteristic = await service.getCharacteristic(HM10_CHARACTERISTIC_UUID);
-
-            statusText.innerText = "Connected Successfully!";
-            statusText.className = "status connected";
-            connectBtn.innerText = "❌ Disconnect";
-            connectBtn.setAttribute('onclick', 'disconnectBluetooth()');
-            
-        } catch (error) {
-            console.log(error);
-            statusText.innerText = "Connection Failed.";
-            statusText.className = "status";
         }
-    }
-
-    function disconnectBluetooth() {
-        if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-            bluetoothDevice.gatt.disconnect();
-        }
-        const statusText = document.getElementById('statusText');
-        const connectBtn = document.getElementById('connectBtn');
-        statusText.innerText = "Disconnected";
-        statusText.className = "status";
-        connectBtn.innerText = "🔌 Connect to HM-10";
-        connectBtn.setAttribute('onclick', 'connectBluetooth()');
-    }
-
-    async function sendCommand(command) {
-        if (!rxTxCharacteristic) {
-            alert("Please connect to your HM-10 module first!");
-            return;
-        }
-        // HM-10 parses incoming data streams via standard string reading
-        const encoder = new TextEncoder();
-        const data = encoder.encode(command + '\n');
-        await rxTxCharacteristic.writeValue(data);
-    }
-</script>
-
+    </script>
 </body>
 </html>
