@@ -1,215 +1,51 @@
 <!DOCTYPE html>
-<html lang="ka">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GreenSense Smart Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght=300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GreenSense AI - Smart Agro Assistant</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 </head>
 <body>
-
     <div class="container">
         <header>
-            <div class="logo">
-                <h1>Green<span>Sense</span></h1>
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
-                    <i class="fa-solid fa-bluetooth"></i> <span id="bt-text">Connect HM-10</span>
-                </div>
-                <button id="sim-button" onclick="startDataSimulation()" style="background: #2e7559; color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer; transition: 0.3s;">
-                    🚀 Start Sim
-                </button>
-            </div>
+            <div class="logo-badge">🌱 AI</div>
+            <h1>GreenSense</h1>
+            <p class="subtitle">Premium Greenhouse Diagnostic Engine</p>
         </header>
+        
+        <main>
+            <div class="form-group">
+                <label for="plantName">🌿 Plant Variety</label>
+                <input type="text" id="plantName" placeholder="e.g., Hazelnut, Mocvi, Saperavi" autocomplete="off">
+            </div>
 
-        <div class="main-content">
-            <div class="status-panel">
-                <div class="card">
-                    <div class="health-score-circle">
-                        <div class="health-inner">
-                            <h2 id="health-score">85</h2>
-                            <p>Score</p>
-                        </div>
-                    </div>
-                    <h3 id="mode-title">Standard Mode</h3>
-                    
-                    <div class="camera-container" onclick="startCamera()">
-                        <video id="webcam" autoplay playsinline muted></video>
-                        <div class="camera-placeholder" id="placeholder">
-                            <i class="fa-solid fa-camera"></i>
-                            <span style="font-weight: 600;">AI Plant Scanner</span>
-                            <p style="font-size: 12px; color: #708075; margin-top: 5px;">Click to scan plant</p>
-                        </div>
-                    </div>
-                    <div id="ai-result">AI Status: Ready</div>
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="temperature">🌡️ Temp (°C)</label>
+                    <input type="number" id="temperature" placeholder="24" inputmode="decimal">
+                </div>
+
+                <div class="form-group">
+                    <label for="humidity">💧 Soil Moisture (%)</label>
+                    <input type="number" id="humidity" placeholder="55" inputmode="numeric">
                 </div>
             </div>
 
-            <div class="sensors-grid">
-                <div class="sensor-card temp">
-                    <div class="icon-wrapper"><i class="fa-solid fa-temperature-high"></i></div>
-                    <div class="sensor-info"><p>Air Temp</p><h3 id="val-temp">--.- °C</h3><span class="status-badge">Normal</span></div>
+            <button id="analyzeBtn" class="interactive-btn">Analyze Environment</button>
+
+            <div id="resultCard" class="result-card hidden">
+                <div class="gauge-wrapper">
+                    <div class="gauge-body">
+                        <div class="gauge-fill" id="gaugeFill"></div>
+                        <div class="gauge-cover"><span id="scoreValue">0</span>%</div>
+                    </div>
                 </div>
-                <div class="sensor-card humidity">
-                    <div class="icon-wrapper"><i class="fa-solid fa-droplet"></i></div>
-                    <div class="sensor-info"><p>Air Humidity</p><h3 id="val-hum">-- %</h3><span class="status-badge">Normal</span></div>
-                </div>
+                <p id="aiAdvice"></p>
             </div>
-        </div>
+        </main>
     </div>
 
-    <script>
-        let model = undefined;
-        let bluetoothDevice = null;
-        let rxCharacteristic = null;
-        let dataBuffer = ""; 
-
-        async function loadAI() {
-            document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
-            try {
-                const modelURL = './model.json';
-                const metadataURL = './metadata.json';
-                model = await tmImage.load(modelURL, metadataURL);
-                document.getElementById('ai-result').innerText = "GreenSense AI Ready";
-            } catch (e) {
-                console.error("Failed to load local model files:", e);
-                document.getElementById('ai-result').innerText = "Error loading local files.";
-            }
-        }
-        loadAI();
-
-        async function startCamera() {
-            const video = document.getElementById('webcam');
-            const placeholder = document.getElementById('placeholder');
-            const resultDiv = document.getElementById('ai-result');
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = stream;
-                placeholder.style.display = 'none';
-                video.style.display = 'block';
-                resultDiv.innerText = "Scanning environment...";
-
-                setInterval(async () => {
-                    if (model) {
-                        const prediction = await model.predict(video);
-                        prediction.sort((a, b) => b.probability - a.probability);
-                        const topResult = prediction[0];
-
-                        if (topResult.probability < 0.60) {
-                            resultDiv.innerText = "Analyzing surroundings...";
-                            return;
-                        }
-
-                        let detectedLabel = topResult.className;
-                        resultDiv.innerText = `Detected: ${detectedLabel} (${Math.round(topResult.probability * 100)}%)`;
-                        
-                        if (detectedLabel === "tomato") {
-                            document.getElementById('mode-title').innerText = "Tomato Mode Active";
-                            document.getElementById('health-score').innerText = "96";
-                        } else if (detectedLabel === "strawbarry") {
-                            document.getElementById('mode-title').innerText = "Strawberry Mode Active";
-                            document.getElementById('health-score').innerText = "92";
-                        } else if (detectedLabel === "empty pot") {
-                            document.getElementById('mode-title').innerText = "Greenhouse: Empty Station";
-                            document.getElementById('health-score').innerText = "--";
-                        }
-                    }
-                }, 1000);
-
-            } catch (err) {
-                console.error("Camera access error:", err);
-                resultDiv.innerText = "Camera Access Error";
-            }
-        }
-
-        function startDataSimulation() {
-            document.getElementById('bt-text').innerText = "Simulating Live...";
-            document.getElementById('bt-button').classList.add('connected');
-
-            setInterval(() => {
-                const temp = (23 + Math.random() * 4).toFixed(1);
-                const hum = Math.floor(60 + Math.random() * 10);
-
-                document.getElementById('val-temp').innerText = `${temp} °C`;
-                document.getElementById('val-hum').innerText = `${hum} %`;
-            }, 1500);
-        }
-
-        async function connectBluetooth() {
-            const btButton = document.getElementById('bt-button');
-            const btText = document.getElementById('bt-text');
-            try {
-                btText.innerText = "Searching...";
-                
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-                });
-                
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-                rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-                
-                await rxCharacteristic.startNotifications();
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
-                
-                btButton.classList.add('connected');
-                btText.innerText = "Connected";
-            } catch (error) {
-                console.error("Web Bluetooth error:", error);
-                btText.innerText = "Connect HM-10";
-            }
-        }
-
-        function handleDataReceived(event) {
-            const resultDiv = document.getElementById('ai-result');
-            try {
-                let rawChunk;
-                if (event.target.value.buffer) {
-                    rawChunk = new TextDecoder().decode(event.target.value.buffer);
-                } else {
-                    rawChunk = new TextDecoder().decode(event.target.value);
-                }
-
-                // Debug line: Show what is arriving in real-time
-                console.log("Raw Chunk received:", rawChunk);
-
-                dataBuffer += rawChunk;
-
-                if (dataBuffer.includes('\n')) {
-                    const lines = dataBuffer.split('\n');
-                    const completeLine = lines[0].trim();
-                    dataBuffer = lines.slice(1).join('\n');
-
-                    console.log("Full line formed:", completeLine);
-
-                    // Ultimate fallback: if it doesn't find "DATA:", check if it's just raw numbers
-                    if (completeLine.startsWith("DATA:")) {
-                        const dataPayload = completeLine.replace("DATA:", "").trim();
-                        const values = dataPayload.split(",");
-                        if (values.length >= 2) {
-                            document.getElementById('val-temp').innerText = `${values[0]} °C`;
-                            document.getElementById('val-hum').innerText = `${values[1]} %`;
-                        }
-                    } else {
-                        // Fallback parser in case "DATA:" gets split or skipped
-                        const fallbackValues = completeLine.split(",");
-                        if (fallbackValues.length === 2 && !isNaN(fallbackValues[0])) {
-                            document.getElementById('val-temp').innerText = `${fallbackValues[0]} °C`;
-                            document.getElementById('val-hum').innerText = `${fallbackValues[1]} %`;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("Parser Error:", err);
-            }
-        }
-    </script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
