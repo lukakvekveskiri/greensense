@@ -143,27 +143,36 @@
         }
 
         // Bluetooth setup remains completely active below
-        async function connectBluetooth() {
-            const btButton = document.getElementById('bt-button');
-            const btText = document.getElementById('bt-text');
-            try {
-                btText.innerText = "Searching...";
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'HM-' }, { name: 'MLT-BT05' }],
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-                });
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-                rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-                await rxCharacteristic.startNotifications();
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
-                btButton.classList.add('connected');
-                btText.innerText = "Connected";
-            } catch (error) {
-                console.error(error);
-                btText.innerText = "Connect HM-10";
-            }
-        }
+async function connectBluetooth() {
+    const statusText = document.getElementById('statusText');
+    const connectBtn = document.getElementById('connectBtn');
+    
+    try {
+        statusText.innerText = "Searching for all devices...";
+        
+        // 1. Removed filters and replaced with acceptAllDevices
+        // 2. Kept the HM-10's service UUID in optionalServices so we can still communicate
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [HM10_SERVICE_UUID] 
+        });
+
+        statusText.innerText = "Connecting to module...";
+        const server = await bluetoothDevice.gatt.connect();
+        const service = await server.getPrimaryService(HM10_SERVICE_UUID);
+        rxTxCharacteristic = await service.getCharacteristic(HM10_CHARACTERISTIC_UUID);
+
+        statusText.innerText = "Connected Successfully!";
+        statusText.className = "status connected";
+        connectBtn.innerText = "❌ Disconnect";
+        connectBtn.setAttribute('onclick', 'disconnectBluetooth()');
+        
+    } catch (error) {
+        console.log(error);
+        statusText.innerText = "Connection Failed.";
+        statusText.className = "status";
+    }
+}
 
         function handleDataReceived(event) {
             const value = new TextDecoder().decode(event.target.value);
