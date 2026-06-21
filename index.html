@@ -77,6 +77,9 @@
         let model = undefined;
         let bluetoothDevice = null;
         let rxCharacteristic = null;
+        
+        // Streaming buffer to collect fractional BLE packets safely
+        let dataBuffer = ""; 
 
         // 1. Automatically load your local custom Teachable Machine model files
         async function loadAI() {
@@ -166,7 +169,6 @@
             try {
                 btText.innerText = "Searching...";
                 
-                // Open scan settings to reveal all visible BLE devices
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
@@ -175,8 +177,10 @@
                 const server = await bluetoothDevice.gatt.connect();
                 const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
                 rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+                
                 await rxCharacteristic.startNotifications();
                 rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
+                
                 btButton.classList.add('connected');
                 btText.innerText = "Connected";
             } catch (error) {
@@ -185,28 +189,47 @@
             }
         }
 
-        // 5. Real BLE Packet Parser
+        // 5. Real BLE Packet Parser with Streaming Buffer support
         function handleDataReceived(event) {
             const resultDiv = document.getElementById('ai-result');
             try {
-                let value;
+                let rawChunk;
                 if (event.target.value.buffer) {
-                    value = new TextDecoder().decode(event.target.value.buffer);
+                    rawChunk = new TextDecoder().decode(event.target.value.buffer);
                 } else {
-                    value = new TextDecoder().decode(event.target.value);
+                    rawChunk = new TextDecoder().decode(event.target.value);
                 }
 
-                console.log("Real BLE Packet Received:", value);
-                resultDiv.innerText = `BLE Received: ${value}`;
+                // Add the new packet fragment to our main buffer string
+                dataBuffer += rawChunk;
 
-                const parts = value.split(',');
-                parts.forEach(part => {
-                    const kv = part.split(':');
-                    if(kv[0] === 'T') document.getElementById('val-temp').innerText = `${kv[1]} °C`;
-                    if(kv[0] === 'H') document.getElementById('val-hum').innerText = `${kv[1]} %`;
-                    if(kv[0] === 'S') document.getElementById('val-soil').innerText = `${kv[1]} %`;
-                    if(kv[0] === 'L') document.getElementById('val-light').innerText = `${kv[1]} Lux`;
-                });
+                // Process data whenever a full line character (\n) shows up
+                if (dataBuffer.includes('\n')) {
+                    const lines = dataBuffer.split('\n');
+                    const completeLine = lines[0].trim();
+                    
+                    // Keep outstanding fragments inside the buffer
+                    dataBuffer = lines.slice(1).join('\n');
+
+                    console.log("Processing Full String Line:", completeLine);
+
+                    // Perfectly handles the Arduino's "DATA:Temp,Hum" format
+                    if (completeLine.startsWith("DATA:")) {
+                        const dataPayload = completeLine.replace("DATA:", "").trim();
+                        const values = dataPayload.split(",");
+                        
+                        if (values.length >= 2) {
+                            const temperature = values[0];
+                            const humidity = values[1];
+                            
+                            // Map values straight to your sensor-card element IDs
+                            document.getElementById('val-temp').innerText = `${temperature} °C`;
+                            document.getElementById('val-hum').innerText = `${humidity} %`;
+                            
+                            resultDiv.innerText = `BLE Updated Stats Live!`;
+                        }
+                    }
+                }
             } catch (err) {
                 console.error("Parser Error:", err);
                 resultDiv.innerText = `Parser Error: ${err.message}`;
