@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GreenSense Smart Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght=300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 </head>
@@ -61,14 +59,6 @@
                     <div class="icon-wrapper"><i class="fa-solid fa-droplet"></i></div>
                     <div class="sensor-info"><p>Air Humidity</p><h3 id="val-hum">-- %</h3><span class="status-badge">Normal</span></div>
                 </div>
-                <div class="sensor-card soil">
-                    <div class="icon-wrapper"><i class="fa-solid fa-seedling"></i></div>
-                    <div class="sensor-info"><p>Soil Moisture</p><h3 id="val-soil">-- %</h3><span class="status-badge">Normal</span></div>
-                </div>
-                <div class="sensor-card light">
-                    <div class="icon-wrapper"><i class="fa-solid fa-sun"></i></div>
-                    <div class="sensor-info"><p>Light Level</p><h3 id="val-light">-- Lux</h3><span class="status-badge">Normal</span></div>
-                </div>
             </div>
         </div>
     </div>
@@ -77,17 +67,13 @@
         let model = undefined;
         let bluetoothDevice = null;
         let rxCharacteristic = null;
-        
-        // Streaming buffer to collect fractional BLE packets safely
         let dataBuffer = ""; 
 
-        // 1. Automatically load your local custom Teachable Machine model files
         async function loadAI() {
             document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
             try {
                 const modelURL = './model.json';
                 const metadataURL = './metadata.json';
-                
                 model = await tmImage.load(modelURL, metadataURL);
                 document.getElementById('ai-result').innerText = "GreenSense AI Ready";
             } catch (e) {
@@ -97,7 +83,6 @@
         }
         loadAI();
 
-        // 2. Start Camera feed and process custom plant predictions continuously
         async function startCamera() {
             const video = document.getElementById('webcam');
             const placeholder = document.getElementById('placeholder');
@@ -143,26 +128,19 @@
             }
         }
 
-        // 3. Direct Interface Testing Simulator (Mocking fallback)
         function startDataSimulation() {
             document.getElementById('bt-text').innerText = "Simulating Live...";
             document.getElementById('bt-button').classList.add('connected');
-            console.log("Direct UI Telemetry simulator running...");
 
             setInterval(() => {
                 const temp = (23 + Math.random() * 4).toFixed(1);
                 const hum = Math.floor(60 + Math.random() * 10);
-                const soil = Math.floor(45 + Math.random() * 15);
-                const light = Math.floor(700 + Math.random() * 150);
 
                 document.getElementById('val-temp').innerText = `${temp} °C`;
                 document.getElementById('val-hum').innerText = `${hum} %`;
-                document.getElementById('val-soil').innerText = `${soil} %`;
-                document.getElementById('val-light').innerText = `${light} Lux`;
             }, 1500);
         }
 
-        // 4. Physical Bluetooth connectivity (Bypassed filtering to capture simulated advertiser)
         async function connectBluetooth() {
             const btButton = document.getElementById('bt-button');
             const btText = document.getElementById('bt-text');
@@ -189,7 +167,6 @@
             }
         }
 
-        // 5. Real BLE Packet Parser with Streaming Buffer support
         function handleDataReceived(event) {
             const resultDiv = document.getElementById('ai-result');
             try {
@@ -200,39 +177,37 @@
                     rawChunk = new TextDecoder().decode(event.target.value);
                 }
 
-                // Add the new packet fragment to our main buffer string
+                // Debug line: Show what is arriving in real-time
+                console.log("Raw Chunk received:", rawChunk);
+
                 dataBuffer += rawChunk;
 
-                // Process data whenever a full line character (\n) shows up
                 if (dataBuffer.includes('\n')) {
                     const lines = dataBuffer.split('\n');
                     const completeLine = lines[0].trim();
-                    
-                    // Keep outstanding fragments inside the buffer
                     dataBuffer = lines.slice(1).join('\n');
 
-                    console.log("Processing Full String Line:", completeLine);
+                    console.log("Full line formed:", completeLine);
 
-                    // Perfectly handles the Arduino's "DATA:Temp,Hum" format
+                    // Ultimate fallback: if it doesn't find "DATA:", check if it's just raw numbers
                     if (completeLine.startsWith("DATA:")) {
                         const dataPayload = completeLine.replace("DATA:", "").trim();
                         const values = dataPayload.split(",");
-                        
                         if (values.length >= 2) {
-                            const temperature = values[0];
-                            const humidity = values[1];
-                            
-                            // Map values straight to your sensor-card element IDs
-                            document.getElementById('val-temp').innerText = `${temperature} °C`;
-                            document.getElementById('val-hum').innerText = `${humidity} %`;
-                            
-                            resultDiv.innerText = `BLE Updated Stats Live!`;
+                            document.getElementById('val-temp').innerText = `${values[0]} °C`;
+                            document.getElementById('val-hum').innerText = `${values[1]} %`;
+                        }
+                    } else {
+                        // Fallback parser in case "DATA:" gets split or skipped
+                        const fallbackValues = completeLine.split(",");
+                        if (fallbackValues.length === 2 && !isNaN(fallbackValues[0])) {
+                            document.getElementById('val-temp').innerText = `${fallbackValues[0]} °C`;
+                            document.getElementById('val-hum').innerText = `${fallbackValues[1]} %`;
                         }
                     }
                 }
             } catch (err) {
                 console.error("Parser Error:", err);
-                resultDiv.innerText = `Parser Error: ${err.message}`;
             }
         }
     </script>
