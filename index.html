@@ -1,13 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="ka">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GreenSense Smart Dashboard</title>
+    <title>GreenSense Wi-Fi Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link rel="stylesheet" href="style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
@@ -21,8 +19,10 @@
                 <h1>Green<span>Sense</span></h1>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="bt-status" id="bt-button" onclick="connectBluetooth()">
-                    <i class="fa-solid fa-bluetooth"></i> <span id="bt-text">Connect HM-10</span>
+                <input type="text" id="esp-ip" value="192.168.1.100" style="padding: 8px 12px; border-radius: 20px; border: 1px solid #2e7559; background: #f4f7f5; font-weight: 600; text-align: center; width: 130px;">
+                
+                <div class="bt-status" id="net-button" onclick="connectWiFi()">
+                    <i class="fa-solid fa-wifi"></i> <span id="net-text">Connect ESP</span>
                 </div>
                 <button id="sim-button" onclick="startDataSimulation()" style="background: #2e7559; color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer; transition: 0.3s;">
                     🚀 Start Sim
@@ -76,48 +76,38 @@
 
     <script>
         let model = undefined;
-        let bluetoothDevice = null;
-        let rxCharacteristic = null;
+        let ws = null;
 
-        // 1. Automatically load your local custom Teachable Machine model files
+        // 1. Load Teachable Machine
         async function loadAI() {
             document.getElementById('ai-result').innerText = "Loading GreenSense AI...";
             try {
-                const modelURL = './model.json';
-                const metadataURL = './metadata.json';
-                
-                model = await tmImage.load(modelURL, metadataURL);
+                model = await tmImage.load('./model.json', './metadata.json');
                 document.getElementById('ai-result').innerText = "GreenSense AI Ready";
             } catch (e) {
-                console.error("Failed to load local model files:", e);
+                console.error(e);
                 document.getElementById('ai-result').innerText = "Error loading local files.";
             }
         }
         loadAI();
 
-        // 2. Start Camera feed and process custom plant predictions continuously
+        // 2. Start Camera feed
         async function startCamera() {
             const video = document.getElementById('webcam');
             const placeholder = document.getElementById('placeholder');
             const resultDiv = document.getElementById('ai-result');
-
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
                 placeholder.style.display = 'none';
                 video.style.display = 'block';
-                resultDiv.innerText = "Scanning environment...";
 
                 setInterval(async () => {
                     if (model) {
                         const prediction = await model.predict(video);
                         prediction.sort((a, b) => b.probability - a.probability);
                         const topResult = prediction[0];
-
-                        if (topResult.probability < 0.60) {
-                            resultDiv.innerText = "Analyzing surroundings...";
-                            return;
-                        }
+                        if (topResult.probability < 0.60) return;
 
                         let detectedLabel = topResult.className;
                         resultDiv.innerText = `Detected: ${detectedLabel} (${Math.round(topResult.probability * 100)}%)`;
@@ -134,72 +124,47 @@
                         }
                     }
                 }, 1000);
-
             } catch (err) {
-                console.error("Camera access error:", err);
                 resultDiv.innerText = "Camera Access Error";
             }
         }
 
-        // 3. Direct Interface Testing Simulator (Mocking fallback)
+        // 3. Simulated testing option
         function startDataSimulation() {
-            document.getElementById('bt-text').innerText = "Simulating Live...";
-            document.getElementById('bt-button').classList.add('connected');
-            console.log("Direct UI Telemetry simulator running...");
-
+            document.getElementById('net-text').innerText = "Simulating...";
+            document.getElementById('net-button').classList.add('connected');
             setInterval(() => {
-                const temp = (23 + Math.random() * 4).toFixed(1);
-                const hum = Math.floor(60 + Math.random() * 10);
-                const soil = Math.floor(45 + Math.random() * 15);
-                const light = Math.floor(700 + Math.random() * 150);
-
-                document.getElementById('val-temp').innerText = `${temp} °C`;
-                document.getElementById('val-hum').innerText = `${hum} %`;
-                document.getElementById('val-soil').innerText = `${soil} %`;
-                document.getElementById('val-light').innerText = `${light} Lux`;
+                document.getElementById('val-temp').innerText = `${(23 + Math.random() * 4).toFixed(1)} °C`;
+                document.getElementById('val-hum').innerText = `${Math.floor(60 + Math.random() * 10)} %`;
+                document.getElementById('val-soil').innerText = `${Math.floor(45 + Math.random() * 15)} %`;
+                document.getElementById('val-light').innerText = `${Math.floor(700 + Math.random() * 150)} Lux`;
             }, 1500);
         }
 
-        // 4. Physical Bluetooth connectivity (Bypassed filtering to capture simulated advertiser)
-        async function connectBluetooth() {
-            const btButton = document.getElementById('bt-button');
-            const btText = document.getElementById('bt-text');
-            try {
-                btText.innerText = "Searching...";
-                
-                // Open scan settings to reveal all visible BLE devices
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-                });
-                
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-                rxCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-                await rxCharacteristic.startNotifications();
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleDataReceived);
-                btButton.classList.add('connected');
-                btText.innerText = "Connected";
-            } catch (error) {
-                console.error("Web Bluetooth error:", error);
-                btText.innerText = "Connect HM-10";
-            }
-        }
+        // 4. Wi-Fi WebSocket Connection Logic
+        function connectWiFi() {
+            const ipAddress = document.getElementById('esp-ip').value.trim();
+            const netButton = document.getElementById('net-button');
+            const netText = document.getElementById('net-text');
 
-        // 5. Real BLE Packet Parser
-        function handleDataReceived(event) {
-            const resultDiv = document.getElementById('ai-result');
-            try {
-                let value;
-                if (event.target.value.buffer) {
-                    value = new TextDecoder().decode(event.target.value.buffer);
-                } else {
-                    value = new TextDecoder().decode(event.target.value);
-                }
+            netText.innerText = "Connecting...";
 
-                console.log("Real BLE Packet Received:", value);
-                resultDiv.innerText = `BLE Received: ${value}`;
+            // Create a native browser WebSocket client directed at your ESP on Port 81
+            ws = new WebSocket(`ws://${ipAddress}:81`);
 
+            ws.onopen = () => {
+                netButton.classList.add('connected');
+                netText.innerText = "Connected";
+                console.log("WebSocket connected to ESP32!");
+            };
+
+            ws.onmessage = (event) => {
+                // Read the incoming text directly (no textDecoder array extraction needed!)
+                const value = event.data;
+                console.log("Packet via Wi-Fi Received:", value);
+                document.getElementById('ai-result').innerText = `Wi-Fi Received: ${value}`;
+
+                // Parse standard sensor token layouts ("T:x,H:y...")
                 const parts = value.split(',');
                 parts.forEach(part => {
                     const kv = part.split(':');
@@ -208,10 +173,18 @@
                     if(kv[0] === 'S') document.getElementById('val-soil').innerText = `${kv[1]} %`;
                     if(kv[0] === 'L') document.getElementById('val-light').innerText = `${kv[1]} Lux`;
                 });
-            } catch (err) {
-                console.error("Parser Error:", err);
-                resultDiv.innerText = `Parser Error: ${err.message}`;
-            }
+            };
+
+            ws.onclose = () => {
+                netButton.classList.remove('connected');
+                netText.innerText = "Connect ESP";
+                console.log("WebSocket disconnected.");
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket Error: ", error);
+                netText.innerText = "Error Connecting";
+            };
         }
     </script>
 </body>
