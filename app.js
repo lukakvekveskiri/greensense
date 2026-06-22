@@ -2,11 +2,10 @@ let plantsDb = {};
 
 async function initApp() {
     const btn = document.getElementById('analyzeBtn');
-    const selector = document.getElementById('plantName');
     btn.innerText = "Initializing Engine...";
     btn.disabled = true;
 
-    // Hardcoded backup data so it works perfectly even when testing offline/locally
+    // Hardcoded data profiles supporting quick plain text lookups
     const localFallback = {
         "hazelnut": { "min_temp": 12, "max_temp": 28, "min_hum": 40, "max_hum": 70 },
         "blueberry": { "min_temp": 15, "max_temp": 26, "min_hum": 50, "max_hum": 75 },
@@ -19,38 +18,28 @@ async function initApp() {
 
     try {
         const response = await fetch('plants.json');
-        if (!response.ok) throw new Error("File read error");
+        if (!response.ok) throw new Error("File missing");
         plantsDb = await response.json();
     } catch (e) {
-        console.warn("Local CORS/Fetch restriction detected. Loading backup database smoothly.");
-        plantsDb = localFallback; // Fall back to hardcoded data safely
+        console.warn("Local sandbox mode active. Loading local fallback records.");
+        plantsDb = localFallback;
     }
-
-    // Populate the selector dropdown dynamically
-    selector.innerHTML = '<option value="" disabled selected>Choose a crop or flower...</option>';
-    Object.keys(plantsDb).forEach(plantKey => {
-        const option = document.createElement('option');
-        option.value = plantKey;
-        option.innerText = plantKey.charAt(0).toUpperCase() + plantKey.slice(1);
-        selector.appendChild(option);
-    });
 
     btn.innerText = "Analyze Environment";
     btn.disabled = false;
 }
 
-// Initialize the application layout on load
 initApp();
 
 document.getElementById('analyzeBtn').addEventListener('click', function() {
-    const rawInput = document.getElementById('plantName').value;
+    const rawInput = document.getElementById('plantName').value.trim().toLowerCase();
     const temp = parseFloat(document.getElementById('temperature').value);
     const hum = parseFloat(document.getElementById('humidity').value);
     const advice = document.getElementById('aiAdvice');
     const resultCard = document.getElementById('resultCard');
 
     if (!rawInput || isNaN(temp) || isNaN(hum)) {
-        alert("Please select a plant variety and fill environmental bounds!");
+        alert("Please complete all configurations before assessing!");
         return;
     }
 
@@ -59,7 +48,7 @@ document.getElementById('analyzeBtn').addEventListener('click', function() {
     if (!profile) {
         resultCard.classList.remove('hidden');
         document.querySelector('.gauge-wrapper').style.display = 'none';
-        advice.innerHTML = `<span class="error-state">❌ Crop or fruit profile not found.</span>`;
+        advice.innerHTML = `<span class="error-state">❌ Crop or fruit profile not found.</span><br><br>We couldn't locate baseline properties for "${rawInput}". Try inputs like hazelnut, blueberry, tangerine, saperavi, rhododendron, snowdrop, or rose.`;
         return;
     }
 
