@@ -17,4 +17,11 @@
   "marcva": { "min_temp": 14, "max_temp": 26, "min_hum": 50, "max_hum": 75 },
   "kiwi": { "min_temp": 15, "max_temp": 28, "min_hum": 50, "max_hum": 75 },
   "feijoa": { "min_temp": 12, "max_temp": 28, "min_hum": 45, "max_hum": 70 }
+  "hazelnut": { "min_temp": 12, "max_temp": 28, "min_hum": 40, "max_hum": 70 },
+  "blueberry": { "min_temp": 15, "max_temp": 26, "min_hum": 50, "max_hum": 75 },
+  "tangerine": { "min_temp": 16, "max_temp": 30, "min_hum": 55, "max_hum": 80 },
+  "saperavi": { "min_temp": 16, "max_temp": 30, "min_hum": 35, "max_hum": 65 },
+  "rhododendron": { "min_temp": 5, "max_temp": 22, "min_hum": 60, "max_hum": 85 },
+  "snowdrop": { "min_temp": 2, "max_temp": 18, "min_hum": 50, "max_hum": 80 },
+  "rose": { "min_temp": 15, "max_temp": 28, "min_hum": 50, "max_hum": 70 }
 }
