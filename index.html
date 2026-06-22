@@ -16,11 +16,8 @@
         
         <main>
             <div class="form-group">
-                <label for="plantName">🌿 Select Variety</label>
-                <!-- JavaScript automatically populates this and browser handles long list scrolling -->
-                <select id="plantName">
-                    <option value="" disabled selected>Loading varieties...</option>
-                </select>
+                <label for="plantName">🌿 Plant Variety</label>
+                <input type="text" id="plantName" placeholder="e.g., Hazelnut, Blueberry, Saperavi" autocomplete="off">
             </div>
 
             <div class="input-grid">
@@ -37,7 +34,6 @@
 
             <button id="analyzeBtn" class="interactive-btn">Analyze Environment</button>
 
-            <!-- Diagnostic Card -->
             <div id="resultCard" class="result-card hidden">
                 <div class="gauge-wrapper">
                     <div class="gauge-body">
