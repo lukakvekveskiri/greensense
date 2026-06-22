@@ -6,6 +6,39 @@ async function initApp() {
     btn.innerText = "Initializing Engine...";
     btn.disabled = true;
 
+    // Hardcoded backup data so it works perfectly even when testing offline/locally
+    const localFallback = {
+        "hazelnut": { "min_temp": 12, "max_temp": 28, "min_hum": 40, "max_hum": 70 },
+        "blueberry": { "min_temp": 15, "max_temp": 26, "min_hum": 50, "max_hum": 75 },
+        "tangerine": { "min_temp": 16, "max_temp": 30, "min_hum": 55, "max_hum": 80 },
+        "saperavi": { "min_temp": 16, "max_temp": 30, "min_hum": 35, "max_hum": 65 },
+        "rhododendron": { "min_temp": 5, "max_temp": 22, "min_hum": 60, "max_hum": 85 },
+        "snowdrop": { "min_temp": 2, "max_temp": 18, "min_hum": 50, "max_hum": 80 },
+        "rose": { "min_temp": 15, "max_temp": 28, "min_hum": 50, "max_hum": 70 }
+    };
+
+    try {
+        const response = await fetch('plants.json');
+        if (!response.ok) throw new Error("File read error");
+        plantsDb = await response.json();
+    } catch (e) {
+        console.warn("Local CORS/Fetch restriction detected. Loading backup database smoothly.");
+        plantsDb = localFallback; // Fall back to hardcoded data safely
+    }
+
+    // Populate the selector dropdown
+    selector.innerHTML = '<option value="" disabled selected>Choose a crop or flower...</option>';
+    Object.keys(plantsDb).forEach(plantKey => {
+        const option = document.createElement('option');
+        option.value = plantKey;
+        option.innerText = plantKey.charAt(0).toUpperCase() + plantKey.slice(1);
+        selector.appendChild(option);
+    });
+
+    btn.innerText = "Analyze Environment";
+    btn.disabled = false;
+}
+
     try {
         const response = await fetch('plants.json');
         plantsDb = await response.json();
