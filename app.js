@@ -26,7 +26,7 @@ async function initApp() {
         plantsDb = localFallback; // Fall back to hardcoded data safely
     }
 
-    // Populate the selector dropdown
+    // Populate the selector dropdown dynamically
     selector.innerHTML = '<option value="" disabled selected>Choose a crop or flower...</option>';
     Object.keys(plantsDb).forEach(plantKey => {
         const option = document.createElement('option');
@@ -39,31 +39,7 @@ async function initApp() {
     btn.disabled = false;
 }
 
-    try {
-        const response = await fetch('plants.json');
-        plantsDb = await response.json();
-        
-        // 1. Clear the "Loading..." placeholder
-        selector.innerHTML = '<option value="" disabled selected>Choose a crop or flower...</option>';
-        
-        // 2. Automatically map all keys from the database into the dropdown
-        Object.keys(plantsDb).forEach(plantKey => {
-            const option = document.createElement('option');
-            option.value = plantKey;
-            // Capitalize the first letter for a clean presentation look
-            option.innerText = plantKey.charAt(0).toUpperCase() + plantKey.slice(1);
-            selector.appendChild(option);
-        });
-
-    } catch (e) {
-        console.error("Database fetch missing.", e);
-        selector.innerHTML = '<option value="" disabled selected>Error loading options</option>';
-    }
-
-    btn.innerText = "Analyze Environment";
-    btn.disabled = false;
-}
-
+// Initialize the application layout on load
 initApp();
 
 document.getElementById('analyzeBtn').addEventListener('click', function() {
